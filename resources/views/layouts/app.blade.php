@@ -11,7 +11,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
-    color-scheme: dark; /* Biar kalender & dropdown otomatis gelap */
+    color-scheme: dark;
     --sidebar: rgba(10, 10, 10, 0.7); 
     --main: #0a0a0a;            
     --card-bg: rgba(26, 26, 26, 0.6); 
@@ -41,9 +41,7 @@ body {
 
 .layout { display: flex; min-height: 100vh; }
 
-/* ========================================== */
-/* SIDEBAR PREMIUM                            */
-/* ========================================== */
+/* SIDEBAR */
 .sidebar { width: var(--sidebar-width); background: var(--sidebar); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); color: white; padding: 27px 20px 20px; display: flex; flex-direction: column; min-height: 100vh; flex-shrink: 0; transition: width var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden; z-index: 100; border-right: 1px solid rgba(255, 107, 0, 0.3); box-shadow: 5px 0 30px rgba(0, 0, 0, 0.5), inset -5px 0 20px rgba(255, 107, 0, 0.05);}
 .sidebar.collapsed { width: var(--sidebar-collapsed-width); padding: 27px 15px 20px; }
 .sidebar.collapsed .logo h2, .sidebar.collapsed .section-label, .sidebar.collapsed .nav-item span, .sidebar.collapsed .user-info, .sidebar.collapsed .logout-btn span, .sidebar.collapsed .more-icon { opacity: 0; pointer-events: none; white-space: nowrap; transition: opacity 0.2s; }
@@ -78,30 +76,73 @@ body {
 .nav-item.active::before { content: ""; position: absolute; left: 0; height: 24px; width: 3px; background: var(--primary); border-radius: 0 4px 4px 0; box-shadow: 0 0 15px var(--primary), 0 0 5px var(--primary); }
 .nav-item:active { transform: scale(0.98); }
 
-/* SIDEBAR BOTTOM */
-.sidebar-bottom { margin-top: auto; transition: 0.3s; }
+/* SIDEBAR BOTTOM & PROFILE */
+.sidebar-bottom { margin-top: auto; transition: 0.3s; position: relative; }
 .logout-btn { width: 100%; background: transparent; border: 1px solid var(--line); color: #ff6b6b; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 12px; margin-bottom: 20px; overflow: hidden; white-space: nowrap; }
 .logout-btn:hover { background: rgba(255, 107, 107, 0.1); border-color: #ff6b6b; box-shadow: 0 0 20px rgba(255, 107, 107, 0.2); transform: translateY(-2px); }
-.user-profile { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.03); cursor: pointer; transition: 0.3s; margin-top: 15px; overflow: hidden; white-space: nowrap; border: 1px solid var(--line);}
+
+.user-profile { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.03); cursor: pointer; transition: 0.3s; margin-top: 15px; overflow: hidden; white-space: nowrap; border: 1px solid var(--line); text-decoration: none;}
 .user-profile:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.3);}
-.avatar { width: 38px; height: 38px; background: #333; color: var(--primary); border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 800; position: relative; flex-shrink: 0; box-shadow: 0 0 10px rgba(255, 107, 0, 0.2);}
+
+/* AVATAR (DIPERBAIKI) */
+.avatar { 
+    width: 38px; height: 38px; 
+    background: #333; color: var(--primary); 
+    border-radius: 50%; display: grid; 
+    place-items: center; font-size: 12px; 
+    font-weight: 800; position: relative; 
+    flex-shrink: 0; box-shadow: 0 0 10px rgba(255, 107, 0, 0.2);
+    overflow: hidden;
+}
+.avatar img {
+    width: 100%; height: 100%; object-fit: cover;
+}
+.status-dot {
+    position: absolute; bottom: 0; right: 0; 
+    width: 10px; height: 10px; 
+    background: var(--primary); 
+    border: 2px solid #1a1a1a; 
+    border-radius: 50%; 
+    box-shadow: 0 0 5px var(--primary); 
+    z-index: 2;
+}
+
 .user-info { flex: 1; transition: 0.3s; }
 .user-info strong { display: block; font-size: 11px; color: white; }
 .user-info small { color: var(--muted); font-size: 9px; display: block; margin-top: 4px; }
 .more-icon { color: var(--muted); flex-shrink: 0; transition: 0.3s;}
 
-/* ========================================== */
-/* MAIN CONTENT & TOPBAR                      */
-/* ========================================== */
+/* CSS DROPDOWN PROFIL BAWAH */
+.profile-dropdown {
+    position: absolute;
+    bottom: 80px;
+    left: 20px;
+    width: 220px;
+    background: rgba(30, 30, 30, 0.95);
+    backdrop-filter: blur(15px);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+}
+.profile-dropdown.show { opacity: 1; visibility: visible; transform: translateY(0); }
+.dropdown-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; color: var(--text); text-decoration: none; font-size: 12px; font-weight: 500; border-radius: 8px; transition: 0.2s; background: transparent; border: none; width: 100%; cursor: pointer; text-align: left; }
+.dropdown-item:hover { background: rgba(255, 107, 0, 0.1); color: var(--primary); }
+.dropdown-item.danger:hover { background: rgba(255, 107, 107, 0.1); color: #ff6b6b; }
+
+/* MAIN CONTENT & TOPBAR */
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; transition: var(--transition-speed); }
 .topbar { height: 75px; background: transparent; border-bottom: 1px solid var(--line); padding: 0 42px; display: flex; justify-content: space-between; align-items: center; transition: 0.3s; position: sticky; top: 0; z-index: 50; backdrop-filter: blur(10px); }
 .breadcrumb { font-size: 11px; color: var(--muted); }
 .breadcrumb strong { color: var(--text); }
 .content { padding: 43px; flex: 1; }
 
-/* ========================================== */
-/* CSS PENDUKUNG HALAMAN (CARD, TABEL, DLL)   */
-/* ========================================== */
+/* CSS PENDUKUNG HALAMAN */
 h1 { font-family: 'Manrope', sans-serif; font-size: 30px; letter-spacing: -1.5px; margin: 10px 0 7px; color: var(--text); }
 .subtitle { color: var(--muted); font-size: 12px; margin-bottom: 24px; }
 .grid { display: grid; gap: 16px; }
@@ -126,13 +167,9 @@ h1 { font-family: 'Manrope', sans-serif; font-size: 30px; letter-spacing: -1.5px
 .task:last-child { border: 0; }
 .task b { font-size: 12px; color: var(--text); }
 .task small { display: block; color: var(--muted); font-size: 10px; margin-top: 5px; }
-
-/* BADGE STATUS (INI YANG TADI HILANG) */
 .status { font-size: 10px; padding: 5px 8px; border-radius: 20px; background: rgba(255, 107, 107, 0.1); color: #ff8888; font-weight: bold; border: 1px solid rgba(255, 107, 107, 0.2);}
 .status.done { background: rgba(22, 164, 119, 0.15); color: #4ade80; border: 1px solid rgba(22, 164, 119, 0.3);}
 .status.review { background: rgba(255, 107, 0, 0.15); color: var(--primary); border: 1px solid rgba(255, 107, 0, 0.3);}
-
-/* TOMBOL (INI JUGA YANG TADI HILANG) */
 .btn { border: 0; border-radius: 9px; background: var(--primary); color: #000; padding: 10px 14px; font-size: 12px; font-weight: 800; cursor: pointer; transition: 0.3s; }
 .btn:hover { background: var(--primary-hover); box-shadow: 0 0 20px var(--accent-glow); transform: translateY(-1px); }
 .btn.secondary { background: rgba(255,255,255,0.05); color: var(--text); border: 1px solid var(--line); }
@@ -154,9 +191,7 @@ th, td { text-align: left; padding: 14px 16px; border-bottom: 1px solid var(--li
 th { font-size: 10px; color: var(--muted); font-weight: 700; background: rgba(0,0,0,0.3); }
 .empty { padding: 30px; text-align: center; color: var(--muted); font-size: 12px; }
 
-/* ========================================== */
-/* CSS TOAST NOTIFICATION (POP-UP)            */
-/* ========================================== */
+/* CSS TOAST NOTIFICATION */
 .toast-notification {
     position: fixed;
     top: 30px;
@@ -178,21 +213,10 @@ th { font-size: 10px; color: var(--muted); font-weight: 700; background: rgba(0,
     animation: slideDown 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     transform: translateY(-150%); 
 }
+@keyframes slideDown { to { transform: translateY(0); } }
+.toast-icon { color: #4ade80; display: flex; align-items: center; justify-content: center; background: rgba(74, 222, 128, 0.1); padding: 8px; border-radius: 50%; }
 
-@keyframes slideDown {
-    to { transform: translateY(0); }
-}
-
-.toast-icon {
-    color: #4ade80;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(74, 222, 128, 0.1);
-    padding: 8px;
-    border-radius: 50%;
-}
-
+/* RESPONSIVE */
 @media(max-width: 900px) {
     .sidebar { width: var(--sidebar-collapsed-width); padding: 27px 15px 20px; }
     .sidebar .logo h2, .sidebar .section-label, .sidebar .nav-item span, .sidebar .user-info, .sidebar .logout-btn span, .sidebar .more-icon { opacity: 0; pointer-events: none; }
@@ -252,18 +276,39 @@ th { font-size: 10px; color: var(--muted); font-weight: 700; background: rgba(0,
         </nav>
 
         <div class="sidebar-bottom">
-            <form method="POST" action="{{ route('logout') }}">
-                @csrf
-                <button type="submit" class="logout-btn" title="Logout">
-                    <i data-lucide="log-out" width="16"></i> <span>Logout</span>
-                </button>
-            </form>
+            <!-- Pop-up Profil Dropdown -->
+            <div class="profile-dropdown" id="profileMenu">
+                
+                <!-- Menu Pengaturan Profil -->
+                <a href="{{ Auth::guard('admin')->check() ? route('admin.profile') : route('member.profile') }}" class="dropdown-item">
+                    <i data-lucide="user-cog"></i> Pengaturan Profil
+                </a>
+                
+                <div style="height:1px; background:var(--line); margin:4px 8px;"></div>
+                
+                <!-- Tombol Logout -->
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="dropdown-item danger">
+                        <i data-lucide="log-out"></i> Logout
+                    </button>
+                </form>
+            </div>
 
-            <div class="user-profile" title="{{ Auth::guard('admin')->user()->nama ?? Auth::guard('member')->user()->nama_member ?? 'User' }}">
+            <!-- Tombol Profil (Pemicu Pop-up) -->
+            <div class="user-profile" onclick="toggleProfileMenu()" title="Menu Profil">
+                <!-- FOTO PROFIL DINAMIS -->
                 <div class="avatar">
-                    {{ substr(Auth::guard('admin')->user()->nama ?? Auth::guard('member')->user()->nama_member ?? 'U', 0, 2) }}
-                    <span style="position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; background: var(--primary); border: 2px solid #1a1a1a; border-radius: 50%; box-shadow: 0 0 5px var(--primary);"></span>
+                    @if(Auth::guard('admin')->check() && Auth::guard('admin')->user()->foto)
+                        <img src="{{ asset('storage/' . Auth::guard('admin')->user()->foto) }}" alt="Profile">
+                    @elseif(Auth::guard('member')->check() && Auth::guard('member')->user()->foto)
+                        <img src="{{ asset('storage/' . Auth::guard('member')->user()->foto) }}" alt="Profile">
+                    @else
+                        {{ substr(Auth::guard('admin')->user()->nama ?? Auth::guard('member')->user()->nama_member ?? 'U', 0, 2) }}
+                    @endif
+                    <span class="status-dot"></span>
                 </div>
+                
                 <div class="user-info">
                     <strong>
                         @if(Auth::guard('admin')->check())
@@ -294,7 +339,6 @@ th { font-size: 10px; color: var(--muted); font-weight: 700; background: rgba(0,
         </header>
 
         <section class="content">
-            <!-- NOTIFIKASI POP-UP (TOAST) -->
             @if(session('success'))
                 <div class="toast-notification" id="toastMessage">
                     <div class="toast-icon">
@@ -321,7 +365,23 @@ th { font-size: 10px; color: var(--muted); font-weight: 700; background: rgba(0,
         lucide.createIcons();
     }
 
-    // SCRIPT OTOMATIS HILANGKAN TOAST SETELAH 3 DETIK
+    // Fungsi Buka/Tutup Pop-up Profil
+    function toggleProfileMenu() {
+        const menu = document.getElementById('profileMenu');
+        menu.classList.toggle('show');
+    }
+
+    // Tutup pop-up kalau klik di luar
+    document.addEventListener('click', function(event) {
+        const menu = document.getElementById('profileMenu');
+        const profile = document.querySelector('.user-profile');
+        
+        if (menu && !menu.contains(event.target) && !profile.contains(event.target)) {
+            menu.classList.remove('show');
+        }
+    });
+
+    // Auto-hide Toast
     const toast = document.getElementById('toastMessage');
     if (toast) {
         setTimeout(() => {

@@ -30,7 +30,7 @@ class ProjectController extends Controller
         $recentTasks = Task::with(['project', 'member'])->latest()->take(5)->get();
         $activeProjects = Project::latest()->take(3)->get();
         
-        // --- LOGIKA AKTIVITAS TERBARU ---
+        // Logika Aktivitas Terbaru
         $assignments = Task::with(['project', 'member'])->latest('created_at')->take(3)->get()->map(function($item) {
             $item->log_type = 'assign'; 
             $item->log_time = $item->created_at;
@@ -44,7 +44,6 @@ class ProjectController extends Controller
         });
 
         $recentActivities = $assignments->concat($completions)->sortByDesc('log_time')->take(5);
-        // ---------------------------------
 
         $lateTasks = Task::where('deadline', '<', now())->where('status', '!=', 'Done')->count();
 
@@ -71,7 +70,7 @@ class ProjectController extends Controller
         return view('admin.projects', compact('projects', 'totalProjects', 'doneProjects', 'activeProjects'));
     }
 
-    // 3. Simpan Proyek Baru
+    // 3. Simpan Proyek Baru (LANGSUNG KE DASHBOARD)
     public function storeProject(Request $request)
     {
         $request->validate([
@@ -89,7 +88,7 @@ class ProjectController extends Controller
             'status' => 'Pending',
         ]);
 
-        return redirect()->route('admin.projects')->with('success', 'Proyek berhasil ditambahkan!');
+        return redirect()->route('admin.dashboard')->with('success', 'Proyek berhasil ditambahkan!');
     }
 
     // 4. Hapus Proyek
@@ -108,7 +107,6 @@ class ProjectController extends Controller
         $projects = Project::all();
         $members = TeamMember::all();
         
-        // Hitung workload secara Real-Time untuk setiap anggota
         foreach($members as $m) {
             $activeTasks = Task::where('id_member', $m->id_member)
                                 ->where('status', '!=', 'Done')
@@ -119,7 +117,7 @@ class ProjectController extends Controller
         return view('admin.tasks', compact('tasks', 'projects', 'members'));
     }
 
-    // 6. Simpan Tugas Baru (Otomatis Ambil Deadline Proyek)
+    // 6. Simpan Tugas Baru (LANGSUNG KE DASHBOARD)
     public function storeTask(Request $request)
     {
         $project = Project::findOrFail($request->id_project);
@@ -134,7 +132,7 @@ class ProjectController extends Controller
             'prasyarat' => $request->prasyarat, 
         ]);
 
-        return redirect()->route('admin.tasks')->with('success', 'Tugas berhasil di-assign!');
+        return redirect()->route('admin.dashboard')->with('success', 'Tugas berhasil di-assign!');
     }
 
     // 7. Halaman Tugas Saya (Team Member)
@@ -155,34 +153,45 @@ class ProjectController extends Controller
         $project = $task->project;
         if ($project) {
             $progress = $this->calculateProgress($project->id_project);
-            
-            if ($progress == 100) {
-                $project->status = 'Done';
-            } else {
-                $project->status = 'On Progress';
-            }
+            $project->status = ($progress == 100) ? 'Done' : 'On Progress';
             $project->save();
         }
 
-        // KIRIM NOTIFIKASI SUKSES
         return redirect()->back()->with('success', 'Status tugas berhasil diupdate!');
     }
 
-    // 9. Hapus Tugas
+    // 9. Update Kanban (AJAX)
+    public function updateKanbanStatus(Request $request, $id)
+    {
+        $task = Task::findOrFail($id);
+        $task->status = $request->status;
+        $task->save();
+
+        $project = $task->project;
+        if ($project) {
+            $progress = $this->calculateProgress($project->id_project);
+            $project->status = ($progress == 100) ? 'Done' : 'On Progress';
+            $project->save();
+        }
+
+        return response()->json(['success' => true]);
+    }
+
+    // 10. Hapus Tugas
     public function destroyTask($id)
     {
         Task::findOrFail($id)->delete();
         return redirect()->route('admin.tasks')->with('success', 'Tugas berhasil dihapus!');
     }
     
-    // 10. Halaman Daftar Semua Tugas
+    // 11. Halaman Daftar Semua Tugas
     public function allTasks()
     {
         $tasks = Task::with(['project', 'member'])->get(); 
         return view('admin.all-tasks', compact('tasks'));
     }
 
-    // 11. Halaman Anggota Tim
+    // 12. Halaman Anggota Tim
     public function indexTeam()
     {
         $members = TeamMember::all(); 
@@ -197,7 +206,7 @@ class ProjectController extends Controller
         return view('admin.team', compact('members'));
     }
 
-    // 12. Simpan Anggota Tim Baru
+    // 13. Simpan Anggota Tim Baru (LANGSUNG KE DASHBOARD)
     public function storeTeamMember(Request $request)
     {
         $request->validate([
@@ -215,24 +224,96 @@ class ProjectController extends Controller
             'status' => 'Aktif',
         ]);
 
-        return redirect()->route('admin.team')->with('success', 'Anggota tim berhasil ditambahkan!');
+        return redirect()->route('admin.dashboard')->with('success', 'Anggota tim berhasil ditambahkan!');
     }
 
-    // FUNGSI BARU: Update Status via Drag & Drop Kanban
-    public function updateKanbanStatus(Request $request, $id)
+    // 14. Halaman Edit Profil (Terpisah)
+    public function editProfile()
     {
-        $task = Task::findOrFail($id);
-        $task->status = $request->status;
-        $task->save();
-
-        // Update progres proyeknya juga (sama kayak fungsi sebelumnya)
-        $project = $task->project;
-        if ($project) {
-            $progress = $this->calculateProgress($project->id_project);
-            $project->status = ($progress == 100) ? 'Done' : 'On Progress';
-            $project->save();
+        if (Auth::guard('admin')->check()) {
+            $user = Auth::guard('admin')->user();
+            $role = 'admin';
+        } else {
+            $user = Auth::guard('member')->user();
+            $role = 'member';
         }
 
-        return response()->json(['success' => true, 'message' => 'Status berhasil diubah!']);
+        return view('profile', compact('user', 'role'));
+    }
+
+    // 15. Simpan Perubahan Profil
+     public function updateProfile(Request $request)
+    {
+        if (Auth::guard('admin')->check()) {
+            $user = Auth::guard('admin')->user();
+            $table = 'admins';
+            $id_col = 'id_admin';
+            $name_col = 'nama';
+        } else {
+            $user = Auth::guard('member')->user();
+            $table = 'team_members';
+            $id_col = 'id_member';
+            $name_col = 'nama_member';
+        }
+
+        $request->validate([
+            'nama' => 'required|string|max:100',
+            'email' => 'required|email|unique:'.$table.',email,'.$user->$id_col.','.$id_col,
+            'password' => 'nullable|min:6',
+            'foto' => 'nullable|image|mimes:jpeg,png,jpg|max:2048', // Validasi Foto
+        ]);
+
+        // Update Data Dasar
+        $user->$name_col = $request->nama;
+        $user->email = $request->email;
+
+        // Update Password (kalau diisi)
+        if ($request->filled('password')) {
+            $user->password = bcrypt($request->password);
+        }
+
+        // Update Foto (kalau ada file yang di-upload)
+        if ($request->hasFile('foto')) {
+            // Hapus foto lama
+            if ($user->foto && \Storage::exists('public/' . $user->foto)) {
+                \Storage::delete('public/' . $user->foto);
+            }
+            // Simpan foto baru
+            $path = $request->file('foto')->store('profile_photos', 'public');
+            $user->foto = $path;
+        }
+
+        $user->save();
+
+       // Jika yang login Admin, lempar ke Dashboard Admin. Jika Member, lempar ke Tugas Saya.
+        if (Auth::guard('admin')->check()) {
+            return redirect()->route('admin.dashboard')->with('success', 'Profil berhasil diperbarui!');
+        } else {
+            return redirect()->route('member.dashboard')->with('success', 'Profil berhasil diperbarui!');
+        }
+    }
+    // 16. Upload Foto Profil
+    public function updateFoto(Request $request)
+    {
+        $request->validate([
+            'foto' => 'required|image|mimes:jpeg,png,jpg|max:2048',
+        ]);
+
+        if (Auth::guard('admin')->check()) {
+            $user = Auth::guard('admin')->user();
+        } else {
+            $user = Auth::guard('member')->user();
+        }
+
+        if ($request->hasFile('foto')) {
+            if ($user->foto && \Storage::exists('public/' . $user->foto)) {
+                \Storage::delete('public/' . $user->foto);
+            }
+            $path = $request->file('foto')->store('profile_photos', 'public');
+            $user->foto = $path;
+            $user->save();
+        }
+
+        return redirect()->back()->with('success', 'Foto profil berhasil diperbarui!');
     }
 }
