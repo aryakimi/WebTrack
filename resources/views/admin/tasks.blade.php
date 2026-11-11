@@ -15,7 +15,7 @@
     <form action="{{ route('admin.tasks.store') }}" method="POST" class="form-grid">
       @csrf
       
-      <!-- 1. PROYEK (Dikasih ID untuk JavaScript) -->
+      <!-- 1. PROYEK -->
       <div class="field">
         <label>Proyek</label>
         <select name="id_project" id="projectDropdown" required>
@@ -32,7 +32,7 @@
         <input type="text" name="nama_task" required placeholder="Contoh: Membuat halaman login">
       </div>
 
-      <!-- 3. KATEGORI SKILL (Filter Anggota) -->
+      <!-- 3. KATEGORI SKILL (Filter) -->
       <div class="field">
         <label>Kategori Skill</label>
         <select id="skillDropdown">
@@ -55,7 +55,7 @@
         </select>
       </div>
 
-      <!-- 5. PRASYARAT (Dikosongkan dulu, diisi JS) -->
+      <!-- 5. PRASYARAT (Task Dependency) -->
       <div class="field">
         <label>Prasyarat (Task Dependency)</label>
         <select name="prasyarat" id="prasyaratDropdown">
@@ -63,15 +63,9 @@
         </select>
       </div>
 
-      <!-- 6. DEADLINE -->
-      <div class="field">
-        <label>Deadline</label>
-        <input type="date" name="deadline" required>
-      </div>
-
-      <!-- TOMBOL SUBMIT -->
+      <!-- TOMBOL SUBMIT (Deadline Dihapus dari Sini) -->
       <div class="field full">
-        <div class="hint">Jika diisi prasyarat, tugas ini tidak akan bisa dikerjakan oleh Member sebelum tugas prasyaratnya "Done".</div>
+        <div class="hint">Deadline tugas akan otomatis mengikuti tanggal deadline proyek yang dipilih. Jika diisi prasyarat, tugas tidak bisa dikerjakan sebelum prasyaratnya "Done".</div>
         <button class="btn" type="submit">+ Tetapkan Tugas</button>
       </div>
     </form>
@@ -117,27 +111,25 @@
                 memberDropdown.innerHTML += `<option value="${m.id_member}">${m.nama_member} (${m.posisi})</option>`;
             });
 
-            // Otomatis pilih anggota pertama
             memberDropdown.value = filteredMembers[0].id_member;
 
-            // Tampilkan Rekomendasi
             let bestMatch = filteredMembers[0];
-            let dummyWorkload = Math.floor(Math.random() * 60) + 30; 
+            let realWorkload = bestMatch.workload; 
             
             recommendationBox.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <div>
-                        <b style="font-size:13px; color:#172033;">Rekomendasi: ${bestMatch.nama_member}</b>
+                        <b style="font-size:13px; color:var(--text);">Rekomendasi: ${bestMatch.nama_member}</b>
                         <div class="muted" style="margin-top:4px;">${bestMatch.posisi}</div>
                     </div>
                     <span class="pill">100% Skill Match</span>
                 </div>
                 <div class="project-row" style="margin-top:12px;">
                     <span class="muted">Workload Saat Ini</span>
-                    <b style="font-size:12px;">${dummyWorkload}%</b>
+                    <b style="font-size:12px; color:var(--text);">${realWorkload}%</b>
                 </div>
-                <div class="bar">
-                    <i style="width:${dummyWorkload}%; background:${dummyWorkload > 80 ? 'var(--orange)' : 'var(--green)'}"></i>
+                <div style="height: 8px; background: rgba(255,255,255,0.1); border-radius: 10px; margin-top: 10px; overflow: hidden;">
+                    <i style="display:block; height:100%; width:${realWorkload}%; background: #ff6b00; border-radius: 10px; box-shadow: 0 0 10px #ff6b00;"></i>
                 </div>
             `;
         } else {
@@ -153,11 +145,9 @@
         const selectedProjectId = this.value;
         const prasyaratDropdown = document.getElementById('prasyaratDropdown');
 
-        // Reset isi dropdown prasyarat
         prasyaratDropdown.innerHTML = '<option value="">Tidak ada prasyarat</option>';
 
         if (selectedProjectId !== "") {
-            // Filter tugas: cuma ambil tugas yang id_project-nya sama
             const filteredTasks = allTasks.filter(t => t.id_project == selectedProjectId);
 
             filteredTasks.forEach(t => {

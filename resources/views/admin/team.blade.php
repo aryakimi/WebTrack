@@ -14,38 +14,20 @@
   <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr))">
       @forelse($members as $m)
       
-      <!-- Simulasi Workload -->
-      @php
-       // Hitung berapa tugas aktif (selain Done) yang di-assign ke anggota ini
-          $activeTasks = \App\Models\Task::where('id_member', $m->id_member)
-                            ->where('status', '!=', 'Done')
-                            ->count();
-          
-          // Rumus: Anggap 1 tugas itu bobotnya 25%. 
-          // Kalau 4 tugas aktif, berarti 100%. Maksimal mentok di 100%.
-          $dummyWorkload = min(100, $activeTasks * 25); 
-          
-          // Warna: Oren kalau di atas 70%, Hijau kalau aman
-          $warnaBar = $dummyWorkload >= 75 ? '#e69a36' : '#16a477';
-
-      @endphp
-
       <div class="card">
           <div style="display:flex; align-items:center; gap:12px;">
-              <!-- Avatar Inisial -->
-              <div class="avatar" style="width:45px; height:45px; font-size:16px; background:var(--soft); color:var(--primary); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold;">
+              <div class="avatar" style="width:45px; height:45px; font-size:16px;">
                   {{ substr($m->nama_member, 0, 2) }}
               </div>
               <div>
-                  <b style="font-size:15px; color:var(--ink);">{{ $m->nama_member }}</b>
+                  <b style="font-size:15px; color:var(--text);">{{ $m->nama_member }}</b>
                   <div class="muted" style="margin-top:2px;">{{ $m->posisi }}</div>
               </div>
           </div>
 
           <div class="project-row" style="margin-top:20px;">
               <span class="muted">Keahlian</span>
-              <!-- Menampilkan teks yang lebih rapi -->
-              <b style="font-size:12px; color:var(--ink);">
+              <b style="font-size:12px; color:var(--text);">
                   @if($m->posisi == 'Frontend') Frontend Developer
                   @elseif($m->posisi == 'Backend') Backend Developer
                   @elseif($m->posisi == 'UI/UX') UI/UX Designer
@@ -57,11 +39,15 @@
           
           <div class="project-row" style="margin-top:10px;">
               <span class="muted">Workload</span>
-              <b style="font-size:12px; color:{{ $warnaBar }};">{{ $dummyWorkload }}%</b>
+              <!-- UDAH DINAMIS DARI CONTROLLER -->
+              <b style="font-size:12px; color:{{ $m->workload >= 75 ? '#ff6b00' : '#4ade80' }};">
+                  {{ $m->workload }}%
+              </b>
           </div>
           
           <div class="bar" style="height:8px; margin-top:8px; background:var(--line); border-radius:10px; overflow:hidden;">
-              <i style="display:block; height:100%; width:{{ $dummyWorkload }}%; background:{{ $warnaBar }}; border-radius:10px;"></i>
+              <!-- BAR DINAMIS -->
+              <i style="display:block; height:100%; width:{{ $m->workload }}%; background:{{ $m->workload >= 75 ? '#ff6b00' : '#4ade80' }}; border-radius:10px;"></i>
           </div>
       </div>
       @empty
@@ -72,9 +58,9 @@
   </div>
 
   <!-- FORM TAMBAH ANGGOTA (POP-UP MODAL) -->
-  <div id="formTambah" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); padding:20px; z-index:999;">
-      <div class="card" style="max-width:500px; margin:50px auto; padding:30px; background:var(--panel); border-radius:14px;">
-          <h3 style="margin-top:0; margin-bottom:20px; color:var(--ink);">Tambah Anggota Tim Baru</h3>
+  <div id="formTambah" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); backdrop-filter:blur(5px); padding:20px; z-index:999;">
+      <div class="card" style="max-width:500px; margin:50px auto; padding:30px;">
+          <h3 style="margin-top:0; margin-bottom:20px; color:var(--text);">Tambah Anggota Tim Baru</h3>
           
           <form action="{{ route('admin.team.store') }}" method="POST" class="form-grid">
               @csrf
@@ -88,10 +74,9 @@
                   <input type="email" name="email" required placeholder="Contoh: raka@webtrack.com">
               </div>
               
-              <!-- KOLOM POSISI JADI DROPDOWN -->
               <div class="field full">
                   <label>Posisi / Keahlian</label>
-                  <select name="posisi" required style="width:100%; border:1px solid var(--line); border-radius:8px; padding:11px 12px; background:var(--panel); color:var(--ink); font-size:12px; outline:none;">
+                  <select name="posisi" required>
                       <option value="">-- Pilih Keahlian --</option>
                       <option value="Frontend">Frontend Developer</option>
                       <option value="Backend">Backend Developer</option>

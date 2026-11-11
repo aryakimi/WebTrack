@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Auth;
 
 class ProjectController extends Controller
 {
-    // FUNGSI BANTUAN: Hitung Persentase Progres Otomatis
+    // FUNGSI BANTUAN: Hitung Persentase Progres Proyek Otomatis
     private function calculateProgress($projectId)
     {
         $totalTasks = Task::where('id_project', $projectId)->count();
@@ -21,28 +21,39 @@ class ProjectController extends Controller
     }
 
     // 1. Halaman Dashboard Admin
-   public function dashboard()
-{
-    $totalProjects = Project::count();
-    $totalTasks = Task::count();
-    $totalMembers = TeamMember::count();
-    
-    $recentTasks = Task::with(['project', 'member'])->latest()->take(5)->get();
-    $activeProjects = Project::latest()->take(3)->get();
-    $recentActivities = Task::with('member')->latest('updated_at')->take(5)->get();
+    public function dashboard()
+    {
+        $totalProjects = Project::count();
+        $totalTasks = Task::count();
+        $totalMembers = TeamMember::count();
+        
+        $recentTasks = Task::with(['project', 'member'])->latest()->take(5)->get();
+        $activeProjects = Project::latest()->take(3)->get();
+        
+        // --- LOGIKA AKTIVITAS TERBARU ---
+        $assignments = Task::with(['project', 'member'])->latest('created_at')->take(3)->get()->map(function($item) {
+            $item->log_type = 'assign'; 
+            $item->log_time = $item->created_at;
+            return $item;
+        });
 
-    // HITUNG TUGAS TERLAMBAT
-    $lateTasks = Task::where('deadline', '<', now())
-                     ->where('status', '!=', 'Done')
-                     ->count();
+        $completions = Task::with(['project', 'member'])->where('status', 'Done')->latest('updated_at')->take(3)->get()->map(function($item) {
+            $item->log_type = 'complete'; 
+            $item->log_time = $item->updated_at;
+            return $item;
+        });
 
-    foreach($activeProjects as $p) {
-        $p->progress = $this->calculateProgress($p->id_project);
+        $recentActivities = $assignments->concat($completions)->sortByDesc('log_time')->take(5);
+        // ---------------------------------
+
+        $lateTasks = Task::where('deadline', '<', now())->where('status', '!=', 'Done')->count();
+
+        foreach($activeProjects as $p) {
+            $p->progress = $this->calculateProgress($p->id_project);
+        }
+        
+        return view('admin.dashboard', compact('totalProjects', 'totalTasks', 'totalMembers', 'recentTasks', 'activeProjects', 'recentActivities', 'lateTasks'));
     }
-    
-    // Kirim $lateTasks
-    return view('admin.dashboard', compact('totalProjects', 'totalTasks', 'totalMembers', 'recentTasks', 'activeProjects', 'recentActivities', 'lateTasks'));
-}
 
     // 2. Halaman Daftar Proyek
     public function indexProject()
@@ -81,24 +92,43 @@ class ProjectController extends Controller
         return redirect()->route('admin.projects')->with('success', 'Proyek berhasil ditambahkan!');
     }
 
-    // 4. Halaman Pembagian Tugas (Admin)
+    // 4. Hapus Proyek
+    public function destroyProject($id)
+    {
+        $project = Project::findOrFail($id);
+        Task::where('id_project', $id)->delete();
+        $project->delete();
+        return redirect()->route('admin.projects')->with('success', 'Proyek dan tugas terkait berhasil dihapus!');
+    }
+
+    // 5. Halaman Pembagian Tugas (Admin)
     public function indexTask()
     {
         $tasks = Task::with(['project', 'member'])->get(); 
         $projects = Project::all();
         $members = TeamMember::all();
         
+        // Hitung workload secara Real-Time untuk setiap anggota
+        foreach($members as $m) {
+            $activeTasks = Task::where('id_member', $m->id_member)
+                                ->where('status', '!=', 'Done')
+                                ->count();
+            $m->workload = min(100, $activeTasks * 25); 
+        }
+        
         return view('admin.tasks', compact('tasks', 'projects', 'members'));
     }
 
-    // 5. Simpan Tugas Baru
+    // 6. Simpan Tugas Baru (Otomatis Ambil Deadline Proyek)
     public function storeTask(Request $request)
     {
+        $project = Project::findOrFail($request->id_project);
+
         Task::create([
             'id_project' => $request->id_project,
             'id_member' => $request->id_member,
             'nama_task' => $request->nama_task,
-            'deadline' => $request->deadline,
+            'deadline' => $project->deadline, 
             'status' => 'To Do',
             'bobot' => 10, 
             'prasyarat' => $request->prasyarat, 
@@ -107,7 +137,7 @@ class ProjectController extends Controller
         return redirect()->route('admin.tasks')->with('success', 'Tugas berhasil di-assign!');
     }
 
-    // 6. Halaman Tugas Saya (Team Member)
+    // 7. Halaman Tugas Saya (Team Member)
     public function memberTasks()
     {
         $memberId = Auth::guard('member')->user()->id_member; 
@@ -115,7 +145,7 @@ class ProjectController extends Controller
         return view('member.dashboard', compact('myTasks'));
     }
 
-    // 7. Update Status
+    // 8. Update Status Tugas
     public function updateTaskStatus(Request $request, $id)
     {
         $task = Task::findOrFail($id);
@@ -134,37 +164,46 @@ class ProjectController extends Controller
             $project->save();
         }
 
+        // KIRIM NOTIFIKASI SUKSES
         return redirect()->back()->with('success', 'Status tugas berhasil diupdate!');
     }
 
-    // 8. Hapus Tugas
+    // 9. Hapus Tugas
     public function destroyTask($id)
     {
         Task::findOrFail($id)->delete();
         return redirect()->route('admin.tasks')->with('success', 'Tugas berhasil dihapus!');
     }
     
-    // 9. Halaman Daftar Tugas
+    // 10. Halaman Daftar Semua Tugas
     public function allTasks()
     {
         $tasks = Task::with(['project', 'member'])->get(); 
         return view('admin.all-tasks', compact('tasks'));
     }
 
-    // 10. Halaman Anggota Tim
+    // 11. Halaman Anggota Tim
     public function indexTeam()
     {
         $members = TeamMember::all(); 
+        
+        foreach($members as $m) {
+            $activeTasks = Task::where('id_member', $m->id_member)
+                                ->where('status', '!=', 'Done')
+                                ->count();
+            $m->workload = min(100, $activeTasks * 25); 
+        }
+
         return view('admin.team', compact('members'));
     }
 
-    // 11. Simpan Anggota Tim Baru (INI YANG BARU DITAMBAHKAN)
+    // 12. Simpan Anggota Tim Baru
     public function storeTeamMember(Request $request)
     {
         $request->validate([
             'nama_member' => 'required',
             'email' => 'required|email|unique:team_members,email', 
-            'posisi' => 'required', // Ini bakal nangkep value "Frontend", "Backend", dll
+            'posisi' => 'required', 
             'password' => 'required|min:6',
         ]);
 
@@ -177,5 +216,23 @@ class ProjectController extends Controller
         ]);
 
         return redirect()->route('admin.team')->with('success', 'Anggota tim berhasil ditambahkan!');
+    }
+
+    // FUNGSI BARU: Update Status via Drag & Drop Kanban
+    public function updateKanbanStatus(Request $request, $id)
+    {
+        $task = Task::findOrFail($id);
+        $task->status = $request->status;
+        $task->save();
+
+        // Update progres proyeknya juga (sama kayak fungsi sebelumnya)
+        $project = $task->project;
+        if ($project) {
+            $progress = $this->calculateProgress($project->id_project);
+            $project->status = ($progress == 100) ? 'Done' : 'On Progress';
+            $project->save();
+        }
+
+        return response()->json(['success' => true, 'message' => 'Status berhasil diubah!']);
     }
 }

@@ -21,15 +21,21 @@ Route::get('/', function () {
 // ==========================================
 Route::middleware(['auth:admin'])->group(function () {
     Route::get('/admin', [ProjectController::class, 'dashboard'])->name('admin.dashboard');
+    
+    // Rute Proyek
     Route::get('/admin/projects', [ProjectController::class, 'indexProject'])->name('admin.projects');
     Route::post('/admin/projects/store', [ProjectController::class, 'storeProject'])->name('admin.projects.store');
+    Route::delete('/admin/projects/{id}', [ProjectController::class, 'destroyProject'])->name('admin.projects.destroy'); // <-- RUTE BARU
+
+    // Rute Tugas
     Route::get('/admin/tasks', [ProjectController::class, 'indexTask'])->name('admin.tasks');
     Route::post('/admin/tasks/store', [ProjectController::class, 'storeTask'])->name('admin.tasks.store');
     Route::get('/admin/all-tasks', [ProjectController::class, 'allTasks'])->name('admin.all-tasks');
+    Route::delete('/admin/tasks/{id}', [ProjectController::class, 'destroyTask'])->name('admin.tasks.destroy');
+    
+    // Rute Tim
     Route::get('/admin/team', [ProjectController::class, 'indexTeam'])->name('admin.team');
     Route::post('/admin/team/store', [ProjectController::class, 'storeTeamMember'])->name('admin.team.store');
-    // RUTE BARU UNTUK HAPUS TUGAS (Biar bisa ngehapus data ngasal tadi)
-    Route::delete('/admin/tasks/{id}', [ProjectController::class, 'destroyTask'])->name('admin.tasks.destroy');
 });
 
 // ==========================================
@@ -37,8 +43,7 @@ Route::middleware(['auth:admin'])->group(function () {
 // ==========================================
 Route::middleware(['auth:member'])->group(function () {
     Route::get('/member', [ProjectController::class, 'memberTasks'])->name('member.dashboard');
-    
-    // RUTE BARU UNTUK UPDATE STATUS TUGAS DARI MEMBER
     Route::post('/member/tasks/update/{id}', [ProjectController::class, 'updateTaskStatus'])->name('member.tasks.update');
-    
+
+    Route::post('/member/tasks/update-kanban/{id}', [ProjectController::class, 'updateKanbanStatus'])->name('member.tasks.kanban');
 });
