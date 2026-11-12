@@ -142,7 +142,7 @@
         border-radius: 12px;
         font-size: 14px;
         color: var(--text-main);
-        background: rgba(0, 0, 0, 0.3); /* Input agak gelap transparan */
+        background: rgba(0, 0, 0, 0.3);
         transition: all 0.3s ease;
         outline: none;
     }
@@ -190,17 +190,26 @@
         box-shadow: 0 8px 20px rgba(255, 107, 0, 0.3);
     }
 
-    .alert-error {
-        background: rgba(255, 107, 107, 0.1);
-        color: #ff6b6b;
-        padding: 12px 15px;
-        border-radius: 8px;
-        font-size: 12px;
+    /* CSS POP-UP ERROR (MERAH) YANG LEBIH KEREN */
+    .toast-error {
+        background: rgba(30, 10, 10, 0.95);
+        border: 1px solid #7f1d1d;
+        border-left: 4px solid #ef4444;
+        color: #f8fafc;
+        padding: 15px 20px;
+        border-radius: 10px;
         margin-bottom: 20px;
-        border: 1px solid rgba(255, 107, 107, 0.3);
+        font-size: 13px;
+        font-weight: 500;
         display: flex;
         align-items: center;
         gap: 10px;
+        animation: slideDown 0.3s ease;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    @keyframes slideDown {
+        from { transform: translateY(-20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
     }
 
     .footer-text {
@@ -224,10 +233,11 @@
             <div class="login-subtitle">Masuk ke Workspace Manajemen Proyek</div>
         </div>
 
+        {{-- NOTIFIKASI ERROR (POP-UP MERAH) --}}
         @if ($errors->any())
-            <div class="alert-error">
-                <i data-lucide="alert-circle" width="18"></i>
-                <span>{{ $errors->first() }}</span>
+            <div class="toast-error">
+                <i data-lucide="alert-circle" width="20"></i>
+                <span>{{ $errors->first('login_error') ?? $errors->first() }}</span>
             </div>
         @endif
 
@@ -236,7 +246,7 @@
             <div class="form-group">
                 <label>Email Address</label>
                 <div class="input-wrapper">
-                    <input type="email" name="email" class="form-control" required autofocus placeholder="Masukkan email Anda">
+                    <input type="email" name="email" class="form-control" required autofocus placeholder="Masukkan email Anda" value="{{ old('email') }}">
                     <i data-lucide="mail"></i>
                 </div>
             </div>

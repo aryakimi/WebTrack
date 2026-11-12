@@ -21,7 +21,15 @@ class AuthController extends Controller
             'password' => ['required'],
         ]);
 
+        // LOGIKA KETAT: Email harus huruf kecil persis seperti di database
+        if (strtolower($request->email) !== $request->email) {
+            return back()->withErrors([
+                'login_error' => 'Format email harus menggunakan huruf kecil semua!',
+            ])->onlyInput('email');
+        }
+
         // Coba login pakai guard 'admin' dulu
+        // (Laravel otomatis ngecek password case-sensitive)
         if (Auth::guard('admin')->attempt($credentials)) {
             $request->session()->regenerate();
             return redirect()->intended('/admin');
@@ -33,16 +41,15 @@ class AuthController extends Controller
             return redirect()->intended('/member');
         }
 
-        // Kalau dua-duanya gagal, balikin ke form login dengan pesan error
+        // Kalau dua-duanya gagal (Email/Password salah)
         return back()->withErrors([
-            'email' => 'Email atau password yang Anda masukkan salah.',
+            'login_error' => 'Email atau password yang Anda masukkan salah.',
         ])->onlyInput('email');
     }
 
     // 3. Proses Logout
     public function logout(Request $request)
     {
-        // Logout dari semua guard (admin dan member)
         Auth::guard('admin')->logout();
         Auth::guard('member')->logout();
         

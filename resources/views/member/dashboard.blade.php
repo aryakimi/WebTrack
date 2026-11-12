@@ -38,7 +38,10 @@
               
               @foreach($myTasks->where('status', $statusKey) as $t)
                   @php
+                      // Cek Waktu Habis (Overdue)
                       $isOverdue = \Carbon\Carbon::parse($t->deadline)->endOfDay()->isPast() && $t->status != 'Done';
+
+                      // Cek Prasyarat (Task Dependency)
                       $isLocked = false;
                       if ($t->prasyarat) {
                           $prasTask = \App\Models\Task::where('nama_task', $t->prasyarat)->first();
@@ -46,7 +49,8 @@
                               $isLocked = true;
                           }
                       }
-                      // Kalau terkunci, jangan kasih class 'draggable'
+                      
+                      // Jika terkunci atau telat, kartu tidak bisa digeser (hapus class draggable-card)
                       $dragClass = ($isLocked || $isOverdue) ? '' : 'draggable-card';
                   @endphp
 
@@ -154,14 +158,18 @@
                             toast.style.display = 'flex';
                             setTimeout(() => { toast.style.transform = 'translateY(0)'; }, 50);
                             
-                            // Sembunyikan setelah 3 detik
+                            // Sembunyikan toast dan REFRESH HALAMAN setelah 1.5 detik
                             setTimeout(() => {
                                 toast.style.transform = 'translateY(-150%)';
-                                setTimeout(() => { toast.style.display = 'none'; }, 300);
-                            }, 3000);
+                                setTimeout(() => { 
+                                    toast.style.display = 'none'; 
+                                    // REFRESH HALAMAN UNTUK UPDATE GEMBOK PRASYARAT
+                                    window.location.reload();
+                                }, 300);
+                            }, 1500);
                         }
                         
-                        // Balikin efek loading di kartu
+                        // Balikin efek loading di kartu (jika tidak jadi refresh)
                         evt.item.style.opacity = '1';
                         evt.item.style.pointerEvents = 'auto';
                     })
