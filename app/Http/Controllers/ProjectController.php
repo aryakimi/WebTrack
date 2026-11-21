@@ -6,21 +6,86 @@ use Illuminate\Http\Request;
 use App\Models\Project;
 use App\Models\Task;
 use App\Models\TeamMember;
+use App\Models\Client; 
 use Illuminate\Support\Facades\Auth; 
 
 class ProjectController extends Controller
 {
-    // FUNGSI BANTUAN: Hitung Persentase Progres Proyek Otomatis
+    // ==============================================================
+    // FUNGSI BANTUAN (HELPERS)
+    // ==============================================================
+
+    // Hitung Persentase Progres Proyek Otomatis
     private function calculateProgress($projectId)
     {
-        $totalTasks = Task::where('id_project', $projectId)->count();
-        if ($totalTasks == 0) return 0; 
+        $tasks = Task::where('id_project', $projectId)->get();
+        $totalBobot = $tasks->sum('bobot');
         
-        $doneTasks = Task::where('id_project', $projectId)->where('status', 'Done')->count();
-        return round(($doneTasks / $totalTasks) * 100);
+        if ($totalBobot == 0) return 0; 
+
+        $bobotTercapai = 0;
+
+        foreach ($tasks as $task) {
+            $multiplier = match($task->status) {
+                'Done' => 1.0,        // 100%
+                'Review' => 0.8,      // 80%
+                'In Progress' => 0.5, // 50%
+                'To Do', 'Todo' => 0, // 0%
+                default => 0
+            };
+            
+            $bobotTask = $task->bobot ?? 10; 
+            $bobotTercapai += ($bobotTask * $multiplier);
+        }
+
+        return round(($bobotTercapai / $totalBobot) * 100);
     }
 
-    // 1. Halaman Dashboard Admin
+    // Hitung Workload (Beban Kerja) Anggota
+    private function calculateWorkload($memberId)
+    {
+        $activeTasks = Task::where('id_member', $memberId)
+                           ->where('status', '!=', 'Done')
+                           ->get();
+        
+        $totalRemainingBobot = 0;
+        foreach($activeTasks as $t) {
+            $multiplier = match($t->status) {
+                'Review' => 0.2,      
+                'In Progress' => 0.5, 
+                'To Do', 'Todo' => 1.0, 
+                default => 1.0
+            };
+            $bobot = $t->bobot ?? 10; 
+            $totalRemainingBobot += ($bobot * $multiplier);
+        }
+
+        $maxBobot = 40; // Asumsi 40 bobot = 100% Workload
+        return min(100, round(($totalRemainingBobot / $maxBobot) * 100));
+    }
+
+    // FUNGSI BARU: Cek Validasi Prasyarat (Task Dependency)
+    private function isTaskLocked($task)
+    {
+        // Tugas yang udah 'Done' TIDAK BOLEH dikunci, biar bisa di-drag balik buat revisi
+        if ($task->status === 'Done' || !$task->prasyarat) {
+            return false;
+        }
+
+        // Cari prasyarat HANYA di dalam proyek yang sama
+        $prasTask = Task::where('id_project', $task->id_project)
+                        ->where('nama_task', $task->prasyarat)
+                        ->first();
+
+        // Kalau prasyarat ada dan belum 'Done', berarti terkunci (True)
+        return ($prasTask && $prasTask->status !== 'Done');
+    }
+
+
+    // ==============================================================
+    // FITUR ADMIN: DASHBOARD
+    // ==============================================================
+
     public function dashboard()
     {
         $totalProjects = Project::count();
@@ -30,7 +95,6 @@ class ProjectController extends Controller
         $recentTasks = Task::with(['project', 'member'])->latest()->take(5)->get();
         $activeProjects = Project::latest()->take(3)->get();
         
-        // Logika Aktivitas Terbaru
         $assignments = Task::with(['project', 'member'])->latest('created_at')->take(3)->get()->map(function($item) {
             $item->log_type = 'assign'; 
             $item->log_time = $item->created_at;
@@ -44,20 +108,27 @@ class ProjectController extends Controller
         });
 
         $recentActivities = $assignments->concat($completions)->sortByDesc('log_time')->take(5);
-
         $lateTasks = Task::where('deadline', '<', now())->where('status', '!=', 'Done')->count();
 
         foreach($activeProjects as $p) {
             $p->progress = $this->calculateProgress($p->id_project);
         }
         
-        return view('admin.dashboard', compact('totalProjects', 'totalTasks', 'totalMembers', 'recentTasks', 'activeProjects', 'recentActivities', 'lateTasks'));
+        return view('admin.dashboard', compact(
+            'totalProjects', 'totalTasks', 'totalMembers', 
+            'recentTasks', 'activeProjects', 'recentActivities', 'lateTasks'
+        ));
     }
 
-    // 2. Halaman Daftar Proyek
+
+    // ==============================================================
+    // FITUR ADMIN: PROYEK
+    // ==============================================================
+
     public function indexProject()
     {
         $projects = Project::all();
+        $clients = Client::all(); 
         
         foreach($projects as $p) {
             $p->progress = $this->calculateProgress($p->id_project);
@@ -67,20 +138,29 @@ class ProjectController extends Controller
         $doneProjects = $projects->where('status', 'Done')->count();
         $activeProjects = $projects->where('status', '!=', 'Done')->count();
         
-        return view('admin.projects', compact('projects', 'totalProjects', 'doneProjects', 'activeProjects'));
+        return view('admin.projects', compact('projects', 'clients', 'totalProjects', 'doneProjects', 'activeProjects'));
     }
 
-    // 3. Simpan Proyek Baru (LANGSUNG KE DASHBOARD)
     public function storeProject(Request $request)
     {
         $request->validate([
             'nama_project' => 'required',
             'deadline' => 'required|date',
+            'nama_client' => 'required', 
         ]);
+
+        $client = Client::firstOrCreate(
+            ['nama_client' => $request->nama_client],
+            [
+                'email' => $request->email_client,
+                'no_telepon' => $request->no_telepon_client,
+                'alamat' => $request->alamat_client,
+            ]
+        );
 
         Project::create([
             'id_admin' => 1, 
-            'id_client' => 1, 
+            'id_client' => $client->id_client, 
             'nama_project' => $request->nama_project,
             'deskripsi' => $request->deskripsi,
             'tanggal_mulai' => now(),
@@ -88,19 +168,62 @@ class ProjectController extends Controller
             'status' => 'Pending',
         ]);
 
-        return redirect()->route('admin.dashboard')->with('success', 'Proyek berhasil ditambahkan!');
+        return redirect()->route('admin.dashboard')->with('success', 'Proyek dan Client berhasil ditambahkan!');
     }
 
-    // 4. Hapus Proyek
     public function destroyProject($id)
     {
         $project = Project::findOrFail($id);
+        $id_client = $project->id_client; 
+
         Task::where('id_project', $id)->delete();
         $project->delete();
-        return redirect()->route('admin.projects')->with('success', 'Proyek dan tugas terkait berhasil dihapus!');
+
+        $cekProyekLain = Project::where('id_client', $id_client)->count();
+        if ($cekProyekLain == 0) {
+            Client::where('id_client', $id_client)->delete();
+        }
+
+        return redirect()->route('admin.projects')->with('success', 'Proyek, tugas, dan Client terkait berhasil dihapus!');
     }
 
-    // 5. Halaman Pembagian Tugas (Admin)
+
+    // ==============================================================
+    // FITUR ADMIN: CLIENT
+    // ==============================================================
+
+    public function indexClient()
+    {
+        $clients = Client::all();
+        $totalClients = $clients->count();
+
+        foreach($clients as $c) {
+            $c->total_projects = Project::where('id_client', $c->id_client)->count();
+            $firstProject = Project::where('id_client', $c->id_client)->orderBy('tanggal_mulai', 'asc')->first();
+            $c->tanggal_mesen = $firstProject ? $firstProject->tanggal_mulai : null;
+        }
+
+        return view('admin.clients', compact('clients', 'totalClients'));
+    }
+
+    public function destroyClient($id)
+    {
+        $client = Client::findOrFail($id);
+        $projectCount = Project::where('id_client', $id)->count();
+        
+        if ($projectCount > 0) {
+            return redirect()->back()->with('error', 'Gagal! Client ini masih memiliki proyek. Hapus semua proyeknya terlebih dahulu.');
+        }
+
+        $client->delete();
+        return redirect()->back()->with('success', 'Data Client berhasil dihapus!');
+    }
+
+
+    // ==============================================================
+    // FITUR ADMIN: TUGAS
+    // ==============================================================
+
     public function indexTask()
     {
         $tasks = Task::with(['project', 'member'])->get(); 
@@ -108,16 +231,12 @@ class ProjectController extends Controller
         $members = TeamMember::all();
         
         foreach($members as $m) {
-            $activeTasks = Task::where('id_member', $m->id_member)
-                                ->where('status', '!=', 'Done')
-                                ->count();
-            $m->workload = min(100, $activeTasks * 25); 
+            $m->workload = $this->calculateWorkload($m->id_member);
         }
         
         return view('admin.tasks', compact('tasks', 'projects', 'members'));
     }
 
-    // 6. Simpan Tugas Baru (LANGSUNG KE DASHBOARD)
     public function storeTask(Request $request)
     {
         $project = Project::findOrFail($request->id_project);
@@ -135,78 +254,34 @@ class ProjectController extends Controller
         return redirect()->route('admin.dashboard')->with('success', 'Tugas berhasil di-assign!');
     }
 
-    // 7. Halaman Tugas Saya (Team Member)
-    public function memberTasks()
-    {
-        $memberId = Auth::guard('member')->user()->id_member; 
-        $myTasks = Task::where('id_member', $memberId)->get();
-        return view('member.dashboard', compact('myTasks'));
-    }
-
-    // 8. Update Status Tugas
-    public function updateTaskStatus(Request $request, $id)
-    {
-        $task = Task::findOrFail($id);
-        $task->status = $request->status;
-        $task->save();
-
-        $project = $task->project;
-        if ($project) {
-            $progress = $this->calculateProgress($project->id_project);
-            $project->status = ($progress == 100) ? 'Done' : 'On Progress';
-            $project->save();
-        }
-
-        return redirect()->back()->with('success', 'Status tugas berhasil diupdate!');
-    }
-
-    // 9. Update Kanban (AJAX)
-    public function updateKanbanStatus(Request $request, $id)
-    {
-        $task = Task::findOrFail($id);
-        $task->status = $request->status;
-        $task->save();
-
-        $project = $task->project;
-        if ($project) {
-            $progress = $this->calculateProgress($project->id_project);
-            $project->status = ($progress == 100) ? 'Done' : 'On Progress';
-            $project->save();
-        }
-
-        return response()->json(['success' => true]);
-    }
-
-    // 10. Hapus Tugas
-    public function destroyTask($id)
-    {
-        Task::findOrFail($id)->delete();
-        return redirect()->route('admin.tasks')->with('success', 'Tugas berhasil dihapus!');
-    }
-    
-    // 11. Halaman Daftar Semua Tugas
     public function allTasks()
     {
         $tasks = Task::with(['project', 'member'])->get(); 
         return view('admin.all-tasks', compact('tasks'));
     }
 
-    // 12. Halaman Anggota Tim
+    public function destroyTask($id)
+    {
+        Task::findOrFail($id)->delete();
+        return redirect()->route('admin.tasks')->with('success', 'Tugas berhasil dihapus!');
+    }
+
+
+    // ==============================================================
+    // FITUR ADMIN: TIM & LAPORAN
+    // ==============================================================
+
     public function indexTeam()
     {
         $members = TeamMember::all(); 
         
         foreach($members as $m) {
-            $activeTasks = Task::where('id_member', $m->id_member)
-                                ->where('status', '!=', 'Done')
-                                ->count();
-            $m->workload = min(100, $activeTasks * 25); 
+            $m->workload = $this->calculateWorkload($m->id_member);
         }
 
         return view('admin.team', compact('members'));
     }
 
-    // 13. Simpan Anggota Tim Baru (LANGSUNG KE DASHBOARD)
     public function storeTeamMember(Request $request)
     {
         $request->validate([
@@ -227,7 +302,166 @@ class ProjectController extends Controller
         return redirect()->route('admin.dashboard')->with('success', 'Anggota tim berhasil ditambahkan!');
     }
 
-    // 14. Halaman Edit Profil (Terpisah)
+    public function indexReport()
+    {
+        $totalProjects = Project::count();
+        $doneProjects = Project::where('status', 'Done')->count();
+        $onProgressProjects = Project::where('status', 'On Progress')->count();
+        
+        $totalTasks = Task::count();
+        $doneTasks = Task::where('status', 'Done')->count();
+        $reviewTasks = Task::where('status', 'Review')->count();
+        $inProgressTasks = Task::where('status', 'In Progress')->count();
+        $todoTasks = Task::whereIn('status', ['To Do', 'Todo'])->count();
+
+        $teamPerformance = TeamMember::all()->map(function($member) {
+            $member->total_tasks = Task::where('id_member', $member->id_member)->count();
+            $member->done_tasks = Task::where('id_member', $member->id_member)->where('status', 'Done')->count();
+            $member->pending_tasks = $member->total_tasks - $member->done_tasks;
+            
+            $member->completion_rate = $member->total_tasks > 0 
+                ? round(($member->done_tasks / $member->total_tasks) * 100) 
+                : 0;
+                
+            return $member;
+        })->sortByDesc('done_tasks');
+
+        return view('admin.reports', compact(
+            'totalProjects', 'doneProjects', 'onProgressProjects',
+            'totalTasks', 'doneTasks', 'reviewTasks', 'inProgressTasks', 'todoTasks',
+            'teamPerformance'
+        ));
+    }
+
+
+    // ==============================================================
+    // FITUR MEMBER: TUGAS, PROYEK, REKAN TIM
+    // ==============================================================
+
+    public function memberTasks()
+    {
+        $memberId = Auth::guard('member')->user()->id_member; 
+        $myTasks = Task::where('id_member', $memberId)->get();
+
+        $totalTasks = $myTasks->count();
+        $doneTasks = $myTasks->where('status', 'Done')->count();
+        $pendingTasks = $totalTasks - $doneTasks;
+        $overdueTasks = Task::where('id_member', $memberId)
+                            ->where('deadline', '<', now())
+                            ->where('status', '!=', 'Done')
+                            ->count();
+
+        $myProjectIds = Task::where('id_member', $memberId)->pluck('id_project')->unique();
+        
+        $recentActivities = Task::with(['member', 'project'])
+            ->whereIn('id_project', $myProjectIds)
+            ->latest('updated_at')
+            ->take(5)
+            ->get();
+
+        return view('member.dashboard', compact(
+            'myTasks', 'totalTasks', 'doneTasks', 'pendingTasks', 'overdueTasks', 'recentActivities'
+        ));
+    }
+
+    public function memberProjects()
+    {
+        $memberId = Auth::guard('member')->user()->id_member;
+        $projectIds = Task::where('id_member', $memberId)->pluck('id_project')->unique();
+        $projects = Project::whereIn('id_project', $projectIds)->get();
+        
+        foreach($projects as $p) {
+            $p->progress = $this->calculateProgress($p->id_project);
+            $p->my_total_tasks = Task::where('id_project', $p->id_project)->where('id_member', $memberId)->count();
+            $p->my_done_tasks = Task::where('id_project', $p->id_project)->where('id_member', $memberId)->where('status', 'Done')->count();
+        }
+
+        return view('member.projects', compact('projects'));
+    }
+
+    public function memberTeam()
+    {
+        $members = TeamMember::all();
+        
+        foreach($members as $m) {
+            $m->workload = $this->calculateWorkload($m->id_member);
+        }
+
+        return view('member.team', compact('members'));
+    }
+
+    // UPDATE: Tambah validasi prasyarat
+    public function updateTaskStatus(Request $request, $id)
+    {
+        $task = Task::findOrFail($id);
+
+        // Validasi Prasyarat (Anti Bypass)
+        if ($this->isTaskLocked($task)) {
+            return redirect()->back()->with('error', 'Gagal! Selesaikan prasyarat tugas ini terlebih dahulu.');
+        }
+
+        $task->status = $request->status;
+        $task->save();
+
+        $project = $task->project;
+        if ($project) {
+            $progress = $this->calculateProgress($project->id_project);
+            $project->status = ($progress == 100) ? 'Done' : 'On Progress';
+            $project->save();
+        }
+
+        return redirect()->back()->with('success', 'Status tugas berhasil diupdate!');
+    }
+
+    // UPDATE: Tambah validasi prasyarat & response JSON
+    public function updateKanbanStatus(Request $request, $id)
+    {
+        $task = Task::findOrFail($id);
+
+        // Validasi Prasyarat (Anti Bypass)
+        if ($this->isTaskLocked($task)) {
+            return response()->json([
+                'success' => false, 
+                'message' => 'Tugas ini masih terkunci! Selesaikan prasyaratnya terlebih dahulu.'
+            ], 403);
+        }
+
+        $task->status = $request->status;
+        $task->save();
+
+        $project = $task->project;
+        if ($project) {
+            $progress = $this->calculateProgress($project->id_project);
+            $project->status = ($progress == 100) ? 'Done' : 'On Progress';
+            $project->save();
+        }
+
+        return response()->json(['success' => true]);
+    }
+
+    public function memberCalendar()
+    {
+        $memberId = Auth::guard('member')->user()->id_member;
+        $myTasks = Task::where('id_member', $memberId)->get();
+
+        $events = $myTasks->map(function($task) {
+            return [
+                'title' => $task->nama_task,
+                'start' => $task->deadline,
+                'backgroundColor' => $task->status == 'Done' ? '#4ade80' : '#ff6b00',
+                'borderColor' => $task->status == 'Done' ? '#4ade80' : '#ff6b00',
+                'textColor' => '#000'
+            ];
+        });
+
+        return view('member.calendar', compact('events'));
+    }
+    
+
+    // ==============================================================
+    // FITUR BERSAMA: PROFIL (ADMIN & MEMBER)
+    // ==============================================================
+
     public function editProfile()
     {
         if (Auth::guard('admin')->check()) {
@@ -241,8 +475,7 @@ class ProjectController extends Controller
         return view('profile', compact('user', 'role'));
     }
 
-    // 15. Simpan Perubahan Profil
-     public function updateProfile(Request $request)
+    public function updateProfile(Request $request)
     {
         if (Auth::guard('admin')->check()) {
             $user = Auth::guard('admin')->user();
@@ -260,39 +493,33 @@ class ProjectController extends Controller
             'nama' => 'required|string|max:100',
             'email' => 'required|email|unique:'.$table.',email,'.$user->$id_col.','.$id_col,
             'password' => 'nullable|min:6',
-            'foto' => 'nullable|image|mimes:jpeg,png,jpg|max:2048', // Validasi Foto
+            'foto' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
 
-        // Update Data Dasar
         $user->$name_col = $request->nama;
         $user->email = $request->email;
 
-        // Update Password (kalau diisi)
         if ($request->filled('password')) {
             $user->password = bcrypt($request->password);
         }
 
-        // Update Foto (kalau ada file yang di-upload)
         if ($request->hasFile('foto')) {
-            // Hapus foto lama
             if ($user->foto && \Storage::exists('public/' . $user->foto)) {
                 \Storage::delete('public/' . $user->foto);
             }
-            // Simpan foto baru
             $path = $request->file('foto')->store('profile_photos', 'public');
             $user->foto = $path;
         }
 
         $user->save();
 
-       // Jika yang login Admin, lempar ke Dashboard Admin. Jika Member, lempar ke Tugas Saya.
         if (Auth::guard('admin')->check()) {
             return redirect()->route('admin.dashboard')->with('success', 'Profil berhasil diperbarui!');
         } else {
             return redirect()->route('member.dashboard')->with('success', 'Profil berhasil diperbarui!');
         }
     }
-    // 16. Upload Foto Profil
+
     public function updateFoto(Request $request)
     {
         $request->validate([

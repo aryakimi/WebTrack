@@ -5,10 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Login — WebTrack</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- AOS CSS -->
+<link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
 <script src="https://unpkg.com/lucide@latest"></script>
 <style>
     :root {
-        /* Tema Gelap Midnight Orange */
         --main-bg: #0a0a0a;       
         --card-bg: rgba(26, 26, 26, 0.6);
         --text-main: #f8fafc;
@@ -16,8 +17,6 @@
         --accent-orange: #ff6b00; 
         --accent-hover: #e65c00;
         --border-color: rgba(255, 255, 255, 0.08);
-        
-        /* Biar kalender/dropdown otomatis gelap */
         color-scheme: dark; 
     }
 
@@ -25,13 +24,11 @@
 
     body {
         background-color: var(--main-bg);
-        /* Efek background titik-titik & pendar oranye di tengah */
         background-image: 
             radial-gradient(circle at 50% 0%, rgba(255, 107, 0, 0.15) 0%, transparent 60%),
             radial-gradient(var(--border-color) 1px, transparent 1px);
         background-size: 100% 100%, 30px 30px;
         background-attachment: fixed;
-        
         display: flex;
         align-items: center;
         justify-content: center;
@@ -47,7 +44,6 @@
         z-index: 2;
     }
 
-    /* Card Kaca (Glassmorphism) */
     .login-card {
         background: var(--card-bg);
         backdrop-filter: blur(20px);
@@ -59,7 +55,6 @@
         position: relative;
     }
 
-    /* Garis oranye nyala di atas card */
     .login-card::before {
         content: "";
         position: absolute;
@@ -107,21 +102,31 @@
         margin-top: 5px;
     }
 
-    .form-group {
-        margin-bottom: 22px;
+    .toast-error {
+        background: rgba(30, 10, 10, 0.95);
+        border: 1px solid #7f1d1d;
+        border-left: 4px solid #ef4444;
+        color: #f8fafc;
+        padding: 15px 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        font-size: 13px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        animation: slideDown 0.3s ease;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    @keyframes slideDown {
+        from { transform: translateY(-20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
     }
 
-    .form-group label {
-        display: block;
-        font-size: 12px;
-        font-weight: 700;
-        color: var(--text-main);
-        margin-bottom: 8px;
-    }
+    .form-group { margin-bottom: 22px; }
+    .form-group label { display: block; font-size: 12px; font-weight: 700; color: var(--text-main); margin-bottom: 8px; }
 
-    .input-wrapper {
-        position: relative;
-    }
+    .input-wrapper { position: relative; }
 
     .input-wrapper svg {
         position: absolute;
@@ -147,7 +152,6 @@
         outline: none;
     }
 
-    /* Matikan warna biru autofill browser */
     .form-control:-webkit-autofill,
     .form-control:-webkit-autofill:hover, 
     .form-control:-webkit-autofill:focus, 
@@ -170,7 +174,7 @@
         width: 100%;
         padding: 15px;
         background: var(--accent-orange);
-        color: #000; /* Teks tombol gelap biar kontras */
+        color: #000; 
         border: none;
         border-radius: 12px;
         font-size: 14px;
@@ -190,28 +194,6 @@
         box-shadow: 0 8px 20px rgba(255, 107, 0, 0.3);
     }
 
-    /* CSS POP-UP ERROR (MERAH) YANG LEBIH KEREN */
-    .toast-error {
-        background: rgba(30, 10, 10, 0.95);
-        border: 1px solid #7f1d1d;
-        border-left: 4px solid #ef4444;
-        color: #f8fafc;
-        padding: 15px 20px;
-        border-radius: 10px;
-        margin-bottom: 20px;
-        font-size: 13px;
-        font-weight: 500;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        animation: slideDown 0.3s ease;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-    }
-    @keyframes slideDown {
-        from { transform: translateY(-20px); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
-    }
-
     .footer-text {
         text-align: center;
         font-size: 11px;
@@ -223,7 +205,8 @@
 <body>
 
 <div class="login-wrapper">
-    <div class="login-card">
+    <!-- Tambahkan data-aos di sini -->
+    <div class="login-card" data-aos="zoom-in" data-aos-duration="800">
         
         <div class="logo-area">
             <div class="logo-icon">
@@ -233,7 +216,6 @@
             <div class="login-subtitle">Masuk ke Workspace Manajemen Proyek</div>
         </div>
 
-        {{-- NOTIFIKASI ERROR (POP-UP MERAH) --}}
         @if ($errors->any())
             <div class="toast-error">
                 <i data-lucide="alert-circle" width="20"></i>
@@ -270,8 +252,17 @@
     </div>
 </div>
 
+<script src="https://unpkg.com/lucide@latest"></script>
 <script>
     lucide.createIcons();
+</script>
+<!-- AOS JS -->
+<script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+<script>
+  AOS.init({
+      duration: 800,
+      once: true,
+  });
 </script>
 </body>
 </html>

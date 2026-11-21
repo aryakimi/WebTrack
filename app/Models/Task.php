@@ -23,13 +23,11 @@ class Task extends Model
         'prasyarat'
     ];
 
-    // Relasi ke tabel projects
     public function project()
     {
         return $this->belongsTo(Project::class, 'id_project', 'id_project');
     }
 
-    // Relasi ke tabel team_members
     public function member()
     {
         return $this->belongsTo(TeamMember::class, 'id_member', 'id_member');

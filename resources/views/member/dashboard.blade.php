@@ -9,6 +9,29 @@
   <h1>Papan Tugas (Kanban)</h1>
   <p class="subtitle">Geser kartu tugas ke kanan untuk mengubah status secara otomatis.</p>
   
+  <!-- ========================================== -->
+  <!-- TAMBAHAN BARU: STATISTIK PERSONAL          -->
+  <!-- ========================================== -->
+  <div class="grid stats" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 24px;">
+      <div class="card" style="padding:16px; border-left: 4px solid var(--primary);">
+          <div class="stat-top">Total Tugas</div>
+          <div class="stat-num" style="font-size:22px;">{{ $totalTasks }}</div>
+      </div>
+      <div class="card" style="padding:16px; border-left: 4px solid #4ade80;">
+          <div class="stat-top">Selesai (Done)</div>
+          <div class="stat-num" style="font-size:22px; color:#4ade80;">{{ $doneTasks }}</div>
+      </div>
+      <div class="card" style="padding:16px; border-left: 4px solid #ffb020;">
+          <div class="stat-top">Sedang Dikerjakan</div>
+          <div class="stat-num" style="font-size:22px; color:#ffb020;">{{ $pendingTasks }}</div>
+      </div>
+      <div class="card" style="padding:16px; border-left: 4px solid #ff6b6b;">
+          <div class="stat-top">Terlambat (Overdue)</div>
+          <div class="stat-num" style="font-size:22px; color:#ff6b6b;">{{ $overdueTasks }}</div>
+      </div>
+  </div>
+  <!-- ========================================== -->
+
   <div class="notice" style="background:rgba(26, 46, 40, 0.8); color:#4ade80; margin-bottom:20px; border:1px solid #166534; padding:15px; border-radius:10px;">
     <b>Info Sistem:</b> Anda tidak bisa memindahkan tugas jika prasyaratnya belum selesai atau waktu sudah habis.
   </div>
@@ -84,6 +107,35 @@
       @endforeach
 
   </div>
+
+  <!-- ========================================== -->
+  <!-- TAMBAHAN BARU: AKTIVITAS PROYEK TERBARU    -->
+  <!-- ========================================== -->
+  <div class="card" style="margin-top: 24px; padding: 20px;">
+      <h3 style="font-size: 16px; margin-bottom: 16px;">Aktivitas Terbaru di Proyek Anda</h3>
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+          @forelse($recentActivities as $act)
+          <div style="display: flex; align-items: flex-start; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line);">
+              <div style="width: 32px; height: 32px; background: rgba(255,107,0,0.1); color: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; flex-shrink: 0;">
+                  {{ substr($act->member->nama_member ?? '?', 0, 2) }}
+              </div>
+              <div>
+                  <div style="font-size: 13px; color: var(--text);">
+                      <b>{{ $act->member->nama_member ?? 'Seseorang' }}</b> memperbarui tugas <b>"{{ $act->nama_task }}"</b> 
+                      menjadi <span style="color: var(--primary); font-weight: bold;">{{ $act->status }}</span>.
+                  </div>
+                  <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">
+                      Proyek: {{ $act->project->nama_project ?? '-' }} • {{ $act->updated_at->diffForHumans() }}
+                  </div>
+              </div>
+          </div>
+          @empty
+          <div class="muted" style="font-size: 12px;">Belum ada aktivitas terbaru.</div>
+          @endforelse
+      </div>
+  </div>
+  <!-- ========================================== -->
+
 </section>
 
 <!-- TOAST NOTIFICATION UNTUK KANBAN -->
@@ -94,6 +146,7 @@
     <span id="toastText">Status tugas berhasil disimpan!</span>
 </div>
 
+<!-- SCRIPT DRAG & DROP & TOAST LOGIC -->
 <!-- SCRIPT DRAG & DROP & TOAST LOGIC -->
 <script>
     document.addEventListener('DOMContentLoaded', function () {
@@ -126,56 +179,54 @@
                     })
                     .then(response => response.json())
                     .then(data => {
-                        if(data.success) {
-                            const toast = document.getElementById('kanbanToast');
-                            const toastText = document.getElementById('toastText');
-                            
-                            // Tentukan pesan berdasarkan status
-                            let message = "";
-                            if (newStatus === 'To Do') message = "Tugas dikembalikan ke To Do.";
-                            else if (newStatus === 'In Progress') message = "Tugas mulai dikerjakan (In Progress).";
-                            else if (newStatus === 'Review') message = "Tugas dikirim untuk di-Review.";
-                            else if (newStatus === 'Done') message = "Mantap! Tugas berhasil diselesaikan (Done).";
-                            
-                            toastText.innerText = message;
-
-                            // Ubah warna border & background Toast sesuai status
-                            if (newStatus === 'Done') {
-                                toast.style.borderLeftColor = '#4ade80';
-                                toast.style.background = 'rgba(26, 46, 40, 0.95)';
-                            } else if (newStatus === 'In Progress') {
-                                toast.style.borderLeftColor = '#ff6b00';
-                                toast.style.background = 'rgba(30, 25, 20, 0.95)';
-                            } else if (newStatus === 'Review') {
-                                toast.style.borderLeftColor = '#60a5fa';
-                                toast.style.background = 'rgba(20, 30, 40, 0.95)';
-                            } else {
-                                toast.style.borderLeftColor = '#8b8b8b';
-                                toast.style.background = 'rgba(26, 26, 26, 0.95)';
-                            }
-
-                            // Tampilkan Toast (animasi turun)
-                            toast.style.display = 'flex';
-                            setTimeout(() => { toast.style.transform = 'translateY(0)'; }, 50);
-                            
-                            // Sembunyikan toast dan REFRESH HALAMAN setelah 1.5 detik
-                            setTimeout(() => {
-                                toast.style.transform = 'translateY(-150%)';
-                                setTimeout(() => { 
-                                    toast.style.display = 'none'; 
-                                    // REFRESH HALAMAN UNTUK UPDATE GEMBOK PRASYARAT
-                                    window.location.reload();
-                                }, 300);
-                            }, 1500);
+                        // --- VALIDASI BACKEND (Kalau ditolak karena prasyarat) ---
+                        if (!data.success) {
+                            alert(data.message || 'Gagal memindahkan tugas!');
+                            window.location.reload(); // Balikin kartu ke posisi semula
+                            return;
                         }
+                        // ---------------------------------------------------------
+
+                        // Kalau sukses, jalanin Toast
+                        const toast = document.getElementById('kanbanToast');
+                        const toastText = document.getElementById('toastText');
                         
-                        // Balikin efek loading di kartu (jika tidak jadi refresh)
-                        evt.item.style.opacity = '1';
-                        evt.item.style.pointerEvents = 'auto';
+                        let message = "";
+                        if (newStatus === 'To Do') message = "Tugas dikembalikan ke To Do.";
+                        else if (newStatus === 'In Progress') message = "Tugas mulai dikerjakan (In Progress).";
+                        else if (newStatus === 'Review') message = "Tugas dikirim untuk di-Review.";
+                        else if (newStatus === 'Done') message = "Mantap! Tugas berhasil diselesaikan (Done).";
+                        
+                        toastText.innerText = message;
+
+                        if (newStatus === 'Done') {
+                            toast.style.borderLeftColor = '#4ade80';
+                            toast.style.background = 'rgba(26, 46, 40, 0.95)';
+                        } else if (newStatus === 'In Progress') {
+                            toast.style.borderLeftColor = '#ff6b00';
+                            toast.style.background = 'rgba(30, 25, 20, 0.95)';
+                        } else if (newStatus === 'Review') {
+                            toast.style.borderLeftColor = '#60a5fa';
+                            toast.style.background = 'rgba(20, 30, 40, 0.95)';
+                        } else {
+                            toast.style.borderLeftColor = '#8b8b8b';
+                            toast.style.background = 'rgba(26, 26, 26, 0.95)';
+                        }
+
+                        toast.style.display = 'flex';
+                        setTimeout(() => { toast.style.transform = 'translateY(0)'; }, 50);
+                        
+                        setTimeout(() => {
+                            toast.style.transform = 'translateY(-150%)';
+                            setTimeout(() => { 
+                                toast.style.display = 'none'; 
+                                window.location.reload(); 
+                            }, 300);
+                        }, 1500);
                     })
                     .catch(error => {
                         console.error('Error:', error);
-                        alert('Gagal mengubah status!');
+                        alert('Terjadi kesalahan sistem!');
                         window.location.reload();
                     });
                 }

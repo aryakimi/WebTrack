@@ -21,10 +21,10 @@ Route::get('/', function () {
 Route::middleware(['auth:admin'])->group(function () {
     Route::get('/admin', [ProjectController::class, 'dashboard'])->name('admin.dashboard');
     
-    // Proyek
+    // Proyek (Termasuk Client di dalamnya)
     Route::get('/admin/projects', [ProjectController::class, 'indexProject'])->name('admin.projects');
     Route::post('/admin/projects/store', [ProjectController::class, 'storeProject'])->name('admin.projects.store');
-    Route::delete('/admin/projects/{id}', [ProjectController::class, 'destroyProject'])->name('admin.projects.destroy');
+    Route::delete('/admin/projects/{id_project}', [ProjectController::class, 'destroyProject'])->name('admin.projects.destroy');
 
     // Tugas
     Route::get('/admin/tasks', [ProjectController::class, 'indexTask'])->name('admin.tasks');
@@ -39,19 +39,34 @@ Route::middleware(['auth:admin'])->group(function () {
     // Edit Profil Admin
     Route::get('/admin/profile', [ProjectController::class, 'editProfile'])->name('admin.profile');
     Route::post('/admin/profile/update', [ProjectController::class, 'updateProfile'])->name('admin.profile.update');
-    Route::post('/admin/profile/photo', [ProjectController::class, 'updateFoto'])->name('admin.profile.photo');
-    Route::post('/member/profile/photo', [ProjectController::class, 'updateFoto'])->name('member.profile.photo');
+
+    // Client
+    Route::get('/admin/clients', [ProjectController::class, 'indexClient'])->name('admin.clients');
+    Route::delete('/admin/clients/{id_client}', [ProjectController::class, 'destroyClient'])->name('admin.clients.destroy');
+
+    // Laporan
+    Route::get('/admin/reports', [ProjectController::class, 'indexReport'])->name('admin.reports');
 });
 
 // ==========================================
 // RUTE KHUSUS MEMBER
 // ==========================================
 Route::middleware(['auth:member'])->group(function () {
+    // Tugas Saya (Dashboard Member)
     Route::get('/member', [ProjectController::class, 'memberTasks'])->name('member.dashboard');
     Route::post('/member/tasks/update/{id}', [ProjectController::class, 'updateTaskStatus'])->name('member.tasks.update');
     Route::post('/member/tasks/update-kanban/{id}', [ProjectController::class, 'updateKanbanStatus'])->name('member.tasks.kanban');
 
+    // Proyek Saya (BARU)
+    Route::get('/member/projects', [ProjectController::class, 'memberProjects'])->name('member.projects');
+
+    // Rekan Tim (BARU)
+    Route::get('/member/team', [ProjectController::class, 'memberTeam'])->name('member.team');
+
     // Edit Profil Member
     Route::get('/member/profile', [ProjectController::class, 'editProfile'])->name('member.profile');
     Route::post('/member/profile/update', [ProjectController::class, 'updateProfile'])->name('member.profile.update');
+
+    // Kalender Deadline
+    Route::get('/member/calendar', [ProjectController::class, 'memberCalendar'])->name('member.calendar');
 });

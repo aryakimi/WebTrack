@@ -25,7 +25,7 @@
   </div>
 
   <!-- KOTAK PROYEK & TUGAS TERBARU -->
-  <div class="grid two">
+  <div class="grid two" style="margin-top:16px;">
     <!-- Kolom Kiri: Proyek Terbaru -->
     <div class="card">
       <div class="section-head"><h3>Proyek Terbaru</h3></div>
@@ -50,7 +50,6 @@
               <span>Deadline: <b>{{ \Carbon\Carbon::parse($p->deadline)->format('d M Y') }}</b></span>
           </div>
 
-          <!-- PROGRESS BAR DINAMIS -->
           <div style="margin-top:12px;">
               <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--muted); margin-bottom:5px;">
                   <span>Progres Proyek</span>
@@ -84,7 +83,7 @@
     </div>
   </div>
 
-  <!-- KOTAK AKTIVITAS TERBARU (LOGIKA CERDAS & URUT) -->
+  <!-- KOTAK AKTIVITAS TERBARU -->
   <div class="card" style="margin-top:16px;">
       <div class="section-head"><h3>Aktivitas Terbaru</h3></div>
       
@@ -93,7 +92,6 @@
               <div style="display:flex; align-items:center; justify-content:space-between; padding-bottom:12px; border-bottom:1px solid var(--line); font-size:13px;">
                   <div>
                       @if($act->log_type == 'assign')
-                          <!-- Log Penugasan -->
                           <b style="color:var(--primary);">Admin</b> 
                           <span style="color:var(--muted);">telah memberikan tugas</span> 
                           <b style="color:var(--text);">"{{ $act->nama_task }}"</b>
@@ -102,7 +100,6 @@
                           <span style="color:var(--muted);">pada proyek</span>
                           <b style="color:var(--text);">"{{ $act->project->nama_project ?? '-' }}"</b>
                       @else
-                          <!-- Log Penyelesaian -->
                           <b style="color:var(--primary);">{{ $act->member->nama_member ?? 'Member' }}</b> 
                           <span style="color:var(--muted);">telah menyelesaikan tugas</span> 
                           <b style="color:var(--text);">"{{ $act->nama_task }}"</b>

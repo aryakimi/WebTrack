@@ -35,7 +35,8 @@
       <!-- 3. KATEGORI SKILL (Filter) -->
       <div class="field">
         <label>Kategori Skill</label>
-        <select id="skillDropdown">
+        <!-- Tambahin name="kategori_skill" buat jaga-jaga validasi backend -->
+        <select name="kategori_skill" id="skillDropdown">
             <option value="">Pilih kategori</option>
             <option value="Frontend">Frontend</option>
             <option value="Backend">Backend</option>
@@ -47,11 +48,9 @@
       <!-- 4. ANGGOTA TIM -->
       <div class="field">
         <label>Anggota Tim</label>
-        <select name="id_member" id="memberDropdown" required>
+        <!-- TAMBAHAN: disabled secara default -->
+        <select name="id_member" id="memberDropdown" required disabled>
           <option value="">Pilih skill terlebih dahulu</option>
-          @foreach($members as $m)
-            <option value="{{ $m->id_member }}">{{ $m->nama_member }} ({{ $m->posisi }})</option>
-          @endforeach
         </select>
       </div>
 
@@ -93,11 +92,16 @@
         let memberDropdown = document.getElementById('memberDropdown');
         let recommendationBox = document.getElementById('skillRecommendation');
         
+        // Jika admin balikin ke "-- Pilih kategori --", matikan lagi dropdown member
         if(selectedSkill === "") {
+            memberDropdown.disabled = true; // Matikan input
             memberDropdown.innerHTML = '<option value="">Pilih skill terlebih dahulu</option>';
             recommendationBox.innerHTML = 'Pilih kategori skill pada form di atas untuk melihat rekomendasi anggota.';
             return;
         }
+
+        // Jika skill dipilih, nyalakan dropdown member
+        memberDropdown.disabled = false;
 
         let filteredMembers = membersData.filter(m => 
             m.posisi.toLowerCase().includes(selectedSkill.toLowerCase()) || 
@@ -111,6 +115,7 @@
                 memberDropdown.innerHTML += `<option value="${m.id_member}">${m.nama_member} (${m.posisi})</option>`;
             });
 
+            // Auto-pilih rekomendasi pertama
             memberDropdown.value = filteredMembers[0].id_member;
 
             let bestMatch = filteredMembers[0];
@@ -133,6 +138,7 @@
                 </div>
             `;
         } else {
+            memberDropdown.disabled = true; // Matikan lagi kalau ternyata kosong
             memberDropdown.innerHTML = '<option value="">Tidak ada anggota dengan skill ini</option>';
             recommendationBox.innerHTML = `Belum ada anggota tim yang memiliki keahlian <b>${selectedSkill}</b>.`;
         }
